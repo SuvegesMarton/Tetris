@@ -46,6 +46,7 @@ class Square:
 
 class Coordinator:
     def __init__(self, height, width, sqInRow, sqInCol):#height, width of a square, number of squares in a row, col
+        #field size
         self.h = height
         self.w = width
         self.inr = sqInRow
