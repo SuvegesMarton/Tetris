@@ -63,13 +63,18 @@ class Shape:
     def validSpawn(self):
         return self.validSpawnBool
 
+    def delBodyParts(self, toDel):
+        for i in toDel:
+            if i in self.body:
+                self.body.remove(i)
+
+
     def chooseShape(self): #choose random shape and set body first time
         #In this list every sublist is a shape. The coordinates in the tuples represents the loacation of the piece,
         #counted from the (0, 0) point->this is the middle of the shape.
         shapes = [
                   [(0, 0), (1, 0)],
                   [(0, 0), (1, 0), (0, 1)],
-                  [(0, 0), (-1, 0), (0, 1)],
                   [(0, 0), (1, 0), (2, 0), (0, 1)],
                   [(0, 0), (-1, 0), (-2, 0), (0, 1)],
                   [(0, 0), (1, 0), (-1, 0), (2, 0)],
@@ -122,10 +127,90 @@ class Shape:
 
     def rotate(self):
         mx, my = self.middle.getCoords()#coords of the middle of the shape
+        newBody = []
+        canRot = True#able to rotate the object
         for i in self.body:
             x, y = i.getCoords()#coords of current item
             rx, ry = x - mx, y - my#relative coords of middle and current item to each other. Changing this will rotate the object
-            nx, ny = ry, rx*-1#location of the rotated piece(the middle point is the origo)
+            newRx, newRy = ry*-1, rx#location of the rotated piece(the middle point is the origo)
+            newGlobalX, newGlobalY = newRx + mx, newRy + my
+            #check new block's location
+            #if on the edge(collision with field edge)
+            if newGlobalX >= len(self.sqList[0]) or newGlobalX < 0 or newGlobalY >= len(self.sqList) or newGlobalY < 0:
+                print('a')
+                canRot = False
+                break
+            #collision with another object
+            elif self.sqList[newGlobalY][newGlobalX].getState() == 'active' and not self.sqList[newGlobalY][newGlobalX] in self.body:
+                print('b')
+                canRot = False
+                break
+            else:
+                newBody.append(self.sqList[newGlobalY][newGlobalX])
+        if canRot:
+            print('canrot')
+            # reset main variables
+            self.eraseMyBody()
+            self.body = newBody
+            self.middle = newBody[0]
+            self.drawMyBody()
+
+
+
+    def goLeft(self):
+        canGo = True
+        for i in self.body:
+            x, y = i.getCoords()
+            #if on the very left side
+            if x == 0:
+                canGo = False
+                break
+            #if collides with another object
+            elif self.sqList[y][x - 1].getState() == 'active' and not self.sqList[y][x - 1] in self.body:
+                canGo = False
+                break
+        if canGo:
+            #calculate new positions
+            newBody = []
+            for i in self.body:
+                x, y = i.getCoords()
+                newBody.append(self.sqList[y][x - 1])
+            #reset main variables
+            self.eraseMyBody()
+            self.body = newBody
+            self.middle = newBody[0]
+            self.drawMyBody()
+
+
+    def goRight(self):
+        canGo = True
+        for i in self.body:
+            x, y = i.getCoords()
+            # if on the very right side
+            if x == len(self.sqList[0]) - 1:
+                canGo = False
+                break
+            # if collides with another object
+            elif self.sqList[y][((x + 1) % len(self.sqList[0]))].getState() == 'active' and not self.sqList[y][x + 1] in self.body:
+                canGo = False
+                break
+        if canGo:
+            # calculate new positions
+            newBody = []
+            for i in self.body:
+                x, y = i.getCoords()
+                newBody.append(self.sqList[y][x + 1])
+            # reset main variables
+            self.eraseMyBody()
+            self.body = newBody
+            self.middle = newBody[0]
+            self.drawMyBody()
+
+    def pullDown(self):
+        stopped = False
+        while not stopped:
+            stopped = self.fall()
+
 
 class Coordinator:
     def __init__(self, height, width, sqInRow, sqInCol):#height, width of a square, number of squares in a row, col
@@ -163,14 +248,17 @@ class Coordinator:
         events = pygame.event.get()
         for event in events:  # check keyboard actions
             if event.type == pygame.QUIT:  # close the game
-                print('Closed')
                 return 'closed'
                 break
             elif event.type == pygame.KEYDOWN: #move left-right, rotate, push down
                 if event.key == pygame.K_LEFT:
-                    self.movement = 'left'
+                    todo = 'left'
                 if event.key == pygame.K_RIGHT:
-                    self.movement = 'true'
+                    todo = 'right'
+                if event.key == pygame.K_UP:
+                    todo = 'rotate'
+                if event.key == pygame.K_DOWN:
+                    todo = 'pullDown'
         return todo
 
 
@@ -181,7 +269,7 @@ class Coordinator:
         # game loop
         running = True
         delay = 1#secundums between 2 'falls'
-        accurate = 5#number of the checks on events per delay period
+        accurate = 10#number of the checks on events per delay period
         while running:
             # shape creation
             s = Shape(self.sqs, 4, 0)
@@ -200,9 +288,18 @@ class Coordinator:
                     todo = self.checkEvents()
                     #execute user commands
                     if todo == 'closed':
-                        print('recieved')
+                        print('Game is closed')
                         running = False
                         break
+                    elif todo == 'left':
+                        s.goLeft()
+                    elif todo == 'right':
+                        s.goRight()
+                    elif todo == 'rotate':
+                        s.rotate()
+                    elif todo == 'pullDown':
+                        s.pullDown()
+                        stopped = True
 
 
 
