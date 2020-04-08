@@ -63,11 +63,6 @@ class Shape:
     def validSpawn(self):
         return self.validSpawnBool
 
-    def delBodyParts(self, toDel):
-        for i in toDel:
-            if i in self.body:
-                self.body.remove(i)
-
 
     def chooseShape(self): #choose random shape and set body first time
         #In this list every sublist is a shape. The coordinates in the tuples represents the loacation of the piece,
@@ -104,6 +99,12 @@ class Shape:
             i.inactivate()
         pygame.display.update()
 
+    def delBodyParts(self, toDel):
+        for i in toDel:
+            if i in self.body:
+                self.body.remove(i)
+                i.inactivate()
+
     def fall(self):  #go down by 1 square
         newBody = []  #list of squares in the shape after falling
         stopped = False
@@ -120,7 +121,8 @@ class Shape:
         if not stopped:
             self.eraseMyBody()
             self.body = newBody
-            self.middle = newBody[0]
+            if len(self.body) > 0:
+                self.middle = newBody[0]
             self.drawMyBody()
 
         return stopped
@@ -148,11 +150,11 @@ class Shape:
             else:
                 newBody.append(self.sqList[newGlobalY][newGlobalX])
         if canRot:
-            print('canrot')
             # reset main variables
             self.eraseMyBody()
             self.body = newBody
-            self.middle = newBody[0]
+            if len(self.body) > 0:
+                self.middle = newBody[0]
             self.drawMyBody()
 
 
@@ -178,7 +180,8 @@ class Shape:
             #reset main variables
             self.eraseMyBody()
             self.body = newBody
-            self.middle = newBody[0]
+            if len(self.body) > 0:
+                self.middle = newBody[0]
             self.drawMyBody()
 
 
@@ -203,7 +206,8 @@ class Shape:
             # reset main variables
             self.eraseMyBody()
             self.body = newBody
-            self.middle = newBody[0]
+            if len(self.body) > 0:
+                self.middle = newBody[0]
             self.drawMyBody()
 
     def pullDown(self):
@@ -241,7 +245,19 @@ class Coordinator:
                 j.setUnderMe(self.sqs)
 
     def delLine(self):
-        pass
+        for i in self.sqs:
+            noInactive = True
+            for j in i:
+                if j.getState() == 'inactive':
+                    noInactive = False
+                    break
+            if noInactive:
+                print('found one')
+                for k in self.createdShapes:
+                    k.delBodyParts(i)
+        for i in self.createdShapes:
+            i.pullDown()
+        pygame.display.update()
 
     def checkEvents(self):
         todo = None
@@ -270,9 +286,11 @@ class Coordinator:
         running = True
         delay = 1#secundums between 2 'falls'
         accurate = 10#number of the checks on events per delay period
+        self.createdShapes = []
         while running:
             # shape creation
             s = Shape(self.sqs, 4, 0)
+            self.createdShapes.append(s)
             #check if new shape spawned on the top of another, if yes, game over
             if s.validSpawn() == False:
                 running = False
