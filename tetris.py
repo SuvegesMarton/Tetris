@@ -70,10 +70,11 @@ class Shape:
         shapes = [
                   [(0, 0), (1, 0)],
                   [(0, 0), (1, 0), (0, 1)],
-                  [(0, 0), (1, 0), (2, 0), (0, 1)],
-                  [(0, 0), (-1, 0), (-2, 0), (0, 1)],
+                  [(0, 0), (1, 0), (-1, 0), (-1, 1)],
+                  [(0, 0), (1, 0), (-1, 0), (1, 1)],
                   [(0, 0), (1, 0), (-1, 0), (2, 0)],
-                  [(0, 0), (1, 0), (0, 1), (1, 1)]
+                  [(0, 0), (1, 0), (0, 1), (1, 1)],
+                  [(0, 0), (1, 0), (-1, 0), (0, 1)]
                   ]
         self.shape = choice(shapes)
         body = []
@@ -104,6 +105,9 @@ class Shape:
             if i in self.body:
                 self.body.remove(i)
                 i.inactivate()
+
+    def getBodySize(self):
+        return len(self.body)
 
     def fall(self):  #go down by 1 square
         newBody = []  #list of squares in the shape after falling
@@ -139,12 +143,10 @@ class Shape:
             #check new block's location
             #if on the edge(collision with field edge)
             if newGlobalX >= len(self.sqList[0]) or newGlobalX < 0 or newGlobalY >= len(self.sqList) or newGlobalY < 0:
-                print('a')
                 canRot = False
                 break
             #collision with another object
             elif self.sqList[newGlobalY][newGlobalX].getState() == 'active' and not self.sqList[newGlobalY][newGlobalX] in self.body:
-                print('b')
                 canRot = False
                 break
             else:
@@ -245,6 +247,7 @@ class Coordinator:
                 j.setUnderMe(self.sqs)
 
     def delLine(self):
+        #delete the squares of full lines from their shapes
         for i in self.sqs:
             noInactive = True
             for j in i:
@@ -252,10 +255,18 @@ class Coordinator:
                     noInactive = False
                     break
             if noInactive:
-                print('found one')
-                for k in self.createdShapes:
+                for k in self.existingShapes:
                     k.delBodyParts(i)
-        for i in self.createdShapes:
+
+        #leave behind the disappeared shapes
+        stillExisting = []
+        for i in self.existingShapes:
+            if i.getBodySize() != 0:
+                stillExisting.append(i)
+        self.existingShapes = stillExisting
+
+        #pull down existing shapes->fill empty lines
+        for i in self.existingShapes:
             i.pullDown()
         pygame.display.update()
 
@@ -286,11 +297,11 @@ class Coordinator:
         running = True
         delay = 1#secundums between 2 'falls'
         accurate = 10#number of the checks on events per delay period
-        self.createdShapes = []
+        self.existingShapes = []
         while running:
             # shape creation
             s = Shape(self.sqs, 4, 0)
-            self.createdShapes.append(s)
+            self.existingShapes.append(s)
             #check if new shape spawned on the top of another, if yes, game over
             if s.validSpawn() == False:
                 running = False
