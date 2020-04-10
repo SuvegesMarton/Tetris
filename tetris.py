@@ -318,11 +318,14 @@ class Coordinator:
         # game loop
         running = True
         delay = 1#secundums between 2 'falls'
+        delayDecreaseRate = 10# - percent of delay per created shape
         accurate = 10#number of the checks on events per delay period
         self.existingShapes = []
+        self.numOfCreatedShapes = 0
         while running:
             # shape creation
             s = Shape(self.sqs, int(self.inr / 2), 0)
+            self.numOfCreatedShapes += 1
             self.existingShapes.append(s)
             #check if new shape spawned on the top of another, if yes, game over
             if s.validSpawn() == False:
@@ -351,14 +354,14 @@ class Coordinator:
                     elif todo == 'pullDown':
                         s.pullDown()
                         stopped = True
-
-
-
-
                 stopped = s.fall()
 
+            #reset delay time
+            delay -= (delay / 100) * delayDecreaseRate
+            #searc and delete filled lines
             self.delLine()
-
+        #game over message
+        print('Number of created shapes:', self.numOfCreatedShapes)
 
 c = Coordinator(300, 600, 5, 10)
 c.main()
