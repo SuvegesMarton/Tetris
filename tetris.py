@@ -1,6 +1,6 @@
 import pygame
 from time import sleep
-from random import randint, choice
+from random import choice
 
 class Square:
     def __init__(self, x, y, height, width, canvas):
@@ -22,6 +22,8 @@ class Square:
         self.olw = 1
         #draw basic state
         self.inactivate()
+        #container shape
+        self.shape = None
 
     def setUnderMe(self, sqList): #find the square under this one
         if self.y == len(sqList) - 1:#on the bottom of the field
@@ -38,15 +40,20 @@ class Square:
     def getState(self):#active or inactive
         return self.state
 
-    def activate(self, color):
+    def getShape(self):
+        return self.shape
+
+    def activate(self, color, shape):
         self.color = color
         self.draw(self.color)
         self.state = 'active'  #colorful ->  something is on it, not empty
+        self.shape = shape
 
     def inactivate(self):
         self.color = (0, 0, 0)#black
         self.draw(self.color)
         self.state = 'inactive'  #black  ->  empty square
+        self.shape = None
 
     def draw(self, color):
         self.pic = pygame.draw.rect(self.canvas, color, [self.guiX + self.olw, self.guiY + self.olw, self.w - 2 * self.olw, self.h - 2 * self.olw])
@@ -92,7 +99,7 @@ class Shape:
 
     def drawMyBody(self):
         for i in self.body:
-            i.activate(self.color)
+            i.activate(self.color, self)
         pygame.display.update()
 
     def eraseMyBody(self):
@@ -100,11 +107,17 @@ class Shape:
             i.inactivate()
         pygame.display.update()
 
-    def delBodyParts(self, toDel):
-        for i in toDel:
-            if i in self.body:
-                self.body.remove(i)
-                i.inactivate()
+    def moveDownPart(self, part): #move down 1 square from the shape by 1 unit
+        x, y = part.getCoords()
+        #inactivate previous position
+        self.delPart(part)
+        #activate current position
+        self.body.append(self.sqList[y + 1][x])
+        self.sqList[y + 1][x].activate(self.color, self)
+
+    def delPart(self, part):
+        self.body.remove(part)
+        part.inactivate()
 
     def getBodySize(self):
         return len(self.body)
@@ -217,9 +230,8 @@ class Shape:
         while not stopped:
             stopped = self.fall()
 
-
 class Coordinator:
-    def __init__(self, height, width, sqInRow, sqInCol):#height, width of a square, number of squares in a row, col
+    def __init__(self, width, height, sqInRow, sqInCol):#height, width of a square, number of squares in a row, col
         #field size
         self.h = height
         self.w = width
@@ -246,28 +258,38 @@ class Coordinator:
             for j in i:
                 j.setUnderMe(self.sqs)
 
-    def delLine(self):
-        #delete the squares of full lines from their shapes
+    def delOneLine(self, lineNumber):
+        #deactivate line
+        for i in self.sqs[lineNumber]:
+            shape = i.getShape()
+            shape.delPart(i)
+        #pull down every line above the deleted one by 1 block
+        for i in range(lineNumber - 1, -1, -1):  #if for example lineNumber = 5, i = 4, 3, 2, 1, 0.
+            for j in self.sqs[i]:
+                shape = j.getShape()
+                if shape != None:
+                    shape.moveDownPart(j)
+
+    def findLineToDel(self):
+        lineNumber = 0
         for i in self.sqs:
-            noInactive = True
+            deletable = True
             for j in i:
                 if j.getState() == 'inactive':
-                    noInactive = False
-                    break
-            if noInactive:
-                for k in self.existingShapes:
-                    k.delBodyParts(i)
+                    deletable = False
+            if deletable:
+                return lineNumber#number of the deletable line
+            else:
+                lineNumber += 1
+        return False#no deletable lines
 
-        #leave behind the disappeared shapes
-        stillExisting = []
-        for i in self.existingShapes:
-            if i.getBodySize() != 0:
-                stillExisting.append(i)
-        self.existingShapes = stillExisting
-
-        #pull down existing shapes->fill empty lines
-        for i in self.existingShapes:
-            i.pullDown()
+    def delLine(self):
+        while True:
+            deletable = self.findLineToDel()
+            if deletable == False:
+                break
+            else:
+                self.delOneLine(deletable)
         pygame.display.update()
 
     def checkEvents(self):
@@ -300,7 +322,7 @@ class Coordinator:
         self.existingShapes = []
         while running:
             # shape creation
-            s = Shape(self.sqs, 4, 0)
+            s = Shape(self.sqs, int(self.inr / 2), 0)
             self.existingShapes.append(s)
             #check if new shape spawned on the top of another, if yes, game over
             if s.validSpawn() == False:
@@ -338,5 +360,5 @@ class Coordinator:
             self.delLine()
 
 
-c = Coordinator(600, 600, 10, 10)
+c = Coordinator(300, 600, 5, 10)
 c.main()
